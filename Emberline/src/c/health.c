@@ -142,7 +142,7 @@ static bool last_night(SleepWindow *w) {
 
 // Movement per column. vmc is the watch's own restlessness measure, which is
 // what makes a night legible: steps during sleep are all zero.
-static bool build_night(Terrain *t) {
+static bool build_night(Terrain *t, const SleepWindow *win) {
 #ifdef DEV_FAKE_HEALTH
   {
     static const uint8_t N[COLS] = {
@@ -154,8 +154,7 @@ static bool build_night(Terrain *t) {
     return true;
   }
 #endif
-  SleepWindow w;
-  if (!last_night(&w)) return false;
+  SleepWindow w = *win;
   uint32_t span = (uint32_t)(w.end - w.start);
   uint32_t acc[COLS];
   memset(acc, 0, sizeof acc);
@@ -187,6 +186,58 @@ static bool build_night(Terrain *t) {
   t->cap = 255;
   t->live = false;
   return true;
+}
+
+// --- the night is built once, not once a minute ----------------------------
+// hl_terrain rebuilt the night whenever its cache was cold, and health_minute
+// clears that cache every minute. So all night, every minute, the face
+// iterated twenty hours of activities and then walked the sleep window in
+// eight to ten flash-backed minute-history reads — on the order of four
+// thousand reads a night, for a plot that cannot change faster than one
+// column per span/60 minutes. That is the load hitch, and it is a plausible
+// way to take an old watch past its watchdog.
+//
+// Two changes. The night is cached against the window that produced it: while
+// sleep is ongoing that window keeps growing, so a refresh floor bounds how
+// often a rebuild can cost anything, and once sleep ends the window stops
+// moving and every later check is free.
+//
+// And it is built on a timer rather than inside the layer update, so the
+// render path never touches flash at all. The first frame shows the live hour
+// and the night arrives a moment later, which is the trade Solfarer already
+// makes for the hour refetch.
+#define NIGHT_REFRESH_S (20 * SECONDS_PER_MINUTE)
+static Terrain s_night;
+static bool s_night_ok, s_night_pending;
+static time_t s_night_start, s_night_end, s_night_at;
+
+static void night_build(void *unused) {
+  (void)unused;
+  s_night_pending = false;
+  // Stamped before anything can fail. The floor governs *attempts*, not
+  // successes: a watch with no sleep recorded can never build one, and the
+  // first cut of this retried that on every draw — which is worse than the
+  // problem it was fixing, and on exactly the watches that can least afford it.
+  s_night_at = time(NULL);
+  SleepWindow w;
+  if (!last_night(&w)) return;
+  if (s_night_ok && w.start == s_night_start && w.end == s_night_end) return;
+  Terrain t;
+  if (!build_night(&t, &w)) return;
+  s_night = t;
+  s_night_ok = true;
+  s_night_start = w.start;
+  s_night_end = w.end;
+  s_terrain_valid = false;
+  face_poke();
+}
+
+// Never blocks: it either declines, or asks for the work to happen later.
+static void night_want(void) {
+  if (s_night_pending) return;
+  if (s_night_at && time(NULL) - s_night_at < NIGHT_REFRESH_S) return;
+  s_night_pending = true;
+  app_timer_register(50, night_build, NULL);
 }
 
 static void health_evt(HealthEventType e, void *ctx) {
@@ -225,7 +276,7 @@ static int hl_sleep_secs_raw(void) { return 0; }
 static int hl_bpm_raw(void) { return 0; }
 static uint8_t s_minsteps[60];
 static int live_minute_steps(void) { return 0; }
-static bool build_night(Terrain *t) { (void)t; return false; }
+static bool build_night(Terrain *t, const void *win) { (void)t; (void)win; return false; }
 void health_init(void) {}
 void health_deinit(void) {}
 void health_minute(struct tm *t) { (void)t; s_terrain_valid = false; hl_stale(); }
@@ -256,8 +307,11 @@ const Terrain *hl_terrain(void) {
   s_was_sleeping = sleeping;
   s_terrain_valid = true;
 
-  if (sleeping && g_cfg.sleep_terrain && build_night(&s_terrain))
-    return &s_terrain;
+  if (sleeping && g_cfg.sleep_terrain) {
+    night_want();
+    if (s_night_ok) { s_terrain = s_night; return &s_terrain; }
+    // nothing built yet: this frame gets the live hour and the timer will poke
+  }
 
   time_t now = time(NULL);
   struct tm *t = localtime(&now);
