@@ -468,6 +468,10 @@ Red is not a theme color. It appears only on a flat battery and a lost phone.
 
 ## The second time zone
 
+*Added in this fork ([ironwillg-create/Sparkline_Faces](https://github.com/ironwillg-create/Sparkline_Faces));
+everything else on this page is upstream's
+([thejambi/Sparkline_Faces](https://github.com/thejambi/Sparkline_Faces), MIT).*
+
 The header's right slot will carry a second zone instead of the day's distance.
 Stacked that is the top right; on one line it is the pulse's row, because a
 single line has no header to give away.
