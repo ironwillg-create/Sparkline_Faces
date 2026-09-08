@@ -36,6 +36,27 @@ static void defaults(void) {
   g_cfg.text_font = TF_MONT;
   g_cfg.show_sep = true;
   g_cfg.c_label = g_cfg.c_sep = g_cfg.c_info_bg = COL_INHERIT;
+  g_cfg.tz2_on = true;
+  g_cfg.tz2_base = 60;                  // CET
+  g_cfg.tz2_rule = TZR_EU;
+  // memcpy rather than strncpy: a label that exactly fills the buffer is a
+  // -Werror=stringop-truncation build failure with strncpy, which makes
+  // changing the default city a trap rather than an edit.
+  memcpy(g_cfg.tz2_label, "PARIS", sizeof "PARIS");
+}
+
+// The caps font carries A-Z, 0-9 and a hyphen and nothing else, so any other
+// character in a label would come out as the wildcard box. Fold to caps and
+// drop what is left rather than drawing one.
+static void tz2_set_label(const char *s) {
+  int o = 0;
+  for (int i = 0; s[i] && o < (int)sizeof g_cfg.tz2_label - 1; i++) {
+    char c = s[i];
+    if (c >= 'a' && c <= 'z') c -= 32;
+    if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == ' ')
+      g_cfg.tz2_label[o++] = c;
+  }
+  g_cfg.tz2_label[o] = 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +165,25 @@ static int tup_int(DictionaryIterator *it, uint32_t key, int fallback) {
   return (int)t->value->int32;
 }
 
+// The zone picker sends one string - "60:1:PARIS" - rather than three keys, so
+// it stays a single row on the config page and there is one thing to validate
+// here. Parsed by hand: sscanf drags newlib's heap stubs into the link, and
+// the Pebble runtime does not provide them.
+static void tup_zone(DictionaryIterator *it) {
+  Tuple *t = dict_find(it, MESSAGE_KEY_TZ2Zone);
+  if (!t || t->type != TUPLE_CSTRING) return;
+  const char *s = t->value->cstring;
+  const char *p = strchr(s, ':');
+  if (!p) return;
+  int base = atoi(s);
+  if (base < -720 || base > 840) return;      // Baker Island to Kiritimati
+  int rule = atoi(p + 1);
+  g_cfg.tz2_base = (int16_t)base;
+  g_cfg.tz2_rule = (rule < 0 || rule > TZR_US) ? TZR_NONE : (uint8_t)rule;
+  const char *q = strchr(p + 1, ':');
+  if (q) tz2_set_label(q + 1);
+}
+
 // Clay's color picker sends a packed 0xRRGGBB integer.
 static uint32_t tup_col(DictionaryIterator *it, uint32_t key, uint32_t fb) {
   Tuple *t = dict_find(it, key);
@@ -193,6 +233,19 @@ static void inbox(DictionaryIterator *it, void *ctx) {
   g_cfg.show_sep  = tup_int(it, MESSAGE_KEY_ShowSep, g_cfg.show_sep);
   g_cfg.text_font = tup_int(it, MESSAGE_KEY_TextFont, g_cfg.text_font);
   if (g_cfg.text_font >= TF_COUNT) g_cfg.text_font = TF_MONT;
+  g_cfg.tz2_on    = tup_int(it, MESSAGE_KEY_TZ2On, g_cfg.tz2_on);
+  tup_zone(it);
+  // The zone carries a default label; the input overrides it, and an empty
+  // input means "whatever the zone said" rather than "no label" - otherwise
+  // every zone change would have to be followed by retyping the city.
+  //
+  // Emptiness is read off the tuple's own length rather than by indexing the
+  // string: cstring is a zero-length array member, and subscripting one is a
+  // -Wzero-length-bounds warning. A cstring's length counts its terminator, so
+  // anything with a character in it is longer than 1.
+  Tuple *tl = dict_find(it, MESSAGE_KEY_TZ2Label);
+  if (tl && tl->type == TUPLE_CSTRING && tl->length > 1)
+    tz2_set_label(tl->value->cstring);
   Tuple *wt = dict_find(it, MESSAGE_KEY_WeatherTemp);   // phone-side fetch
   if (wt) face_set_temp((int)wt->value->int32);
   g_cfg.version = SETTINGS_VERSION;

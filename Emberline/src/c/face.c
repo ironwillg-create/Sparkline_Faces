@@ -758,6 +758,136 @@ static void draw_degree(GContext *ctx, int x, int top, int size, GColor col) {
   graphics_draw_rect(ctx, GRect(x, top, size, size));
 }
 
+// ---------------------------------------------------------------------------
+// The second time zone
+//
+// It is worked out here rather than sent by the phone. A zone the phone has to
+// supply is wrong exactly when a second zone matters most - out of range, or
+// with the phone flat - and the whole calculation is a base offset plus a rule
+// that has not changed in twenty years. Nothing here has to be updated each
+// year either: both rules are evaluated against the instant rather than
+// against a table of transition dates.
+//
+// It is always drawn 24-hour, whatever the watch is set to. A zone you are not
+// standing in has no context to disambiguate it, and 16:58 cannot be misread
+// as the morning the way 4:58 can.
+// ---------------------------------------------------------------------------
+static int tz_dim(int y, int m) {
+  static const int d[] = { 31,28,31,30,31,30,31,31,30,31,30,31 };
+  if (m == 2) return ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) ? 29 : 28;
+  return d[m - 1];
+}
+
+// 0 = Sunday.
+static int tz_dow(int y, int m, int d) {
+  static const int t[] = { 0,3,2,5,0,3,5,1,4,6,2,4 };
+  if (m < 3) y -= 1;
+  return (y + y / 4 - y / 100 + y / 400 + t[m - 1] + d) % 7;
+}
+
+static int tz_last_sunday(int y, int m) {
+  int dim = tz_dim(y, m);
+  return dim - tz_dow(y, m, dim);
+}
+
+static int tz_nth_sunday(int y, int m, int n) {
+  return 1 + ((7 - tz_dow(y, m, 1)) % 7) + (n - 1) * 7;
+}
+
+static long tz_civil(int y, int m, int d) {
+  y -= (m <= 2) ? 1 : 0;
+  long era = (long)((y >= 0 ? y : y - 399) / 400);
+  long yoe = (long)y - era * 400;
+  long doy = (153L * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+  long doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return era * 146097 + doe - 719468;
+}
+
+// The EU switches on a UTC instant, so it is read straight off UTC. The US
+// switches on a local wall clock, so it is read off standard local time -
+// which is the same thing an hour apart, and getting it backwards would put
+// the transition an hour out twice a year.
+static bool tz2_dst(time_t now, int base_min, int rule) {
+  if (rule == TZR_EU) {
+    struct tm u = *gmtime(&now);
+    int y = u.tm_year + 1900, m = u.tm_mon + 1, ls;
+    if (m < 3 || m > 10) return false;
+    if (m > 3 && m < 10) return true;
+    ls = tz_last_sunday(y, m);
+    if (m == 3) return u.tm_mday > ls || (u.tm_mday == ls && u.tm_hour >= 1);
+    return u.tm_mday < ls || (u.tm_mday == ls && u.tm_hour < 1);
+  }
+  if (rule == TZR_US) {
+    time_t st = now + (time_t)base_min * 60;
+    struct tm s = *gmtime(&st);
+    int y = s.tm_year + 1900, m = s.tm_mon + 1, d;
+    if (m < 3 || m > 11) return false;
+    if (m > 3 && m < 11) return true;
+    if (m == 3) {                       // second Sunday, 02:00 standard
+      d = tz_nth_sunday(y, 3, 2);
+      return s.tm_mday > d || (s.tm_mday == d && s.tm_hour >= 2);
+    }
+    d = tz_nth_sunday(y, 11, 1);        // first Sunday, 02:00 daylight = 01:00
+    return s.tm_mday < d || (s.tm_mday == d && s.tm_hour < 1);
+  }
+  return false;
+}
+
+// delta is whole days between the two dates, which is what the caption marks.
+static void tz2_str(char *buf, size_t n, int *delta) {
+  time_t now = time(NULL);
+  struct tm l = *localtime(&now);       // copied: gmtime shares the static tm
+  int off = g_cfg.tz2_base +
+            (tz2_dst(now, g_cfg.tz2_base, g_cfg.tz2_rule) ? 60 : 0);
+  time_t t = now + (time_t)off * 60;
+  struct tm f = *gmtime(&t);
+  snprintf(buf, n, "%02d:%02d", f.tm_hour, f.tm_min);
+  if (delta)
+    *delta = (int)(tz_civil(f.tm_year + 1900, f.tm_mon + 1, f.tm_mday) -
+                   tz_civil(l.tm_year + 1900, l.tm_mon + 1, l.tm_mday));
+}
+
+static void tz2_caption(char *out, size_t n, int name_len, int delta) {
+  int i = 0;
+  while (i < name_len && g_cfg.tz2_label[i] && (size_t)i < n - 4) {
+    out[i] = g_cfg.tz2_label[i];
+    i++;
+  }
+  out[i] = 0;
+  if (!i) return;
+  if (delta > 0)      snprintf(out + i, n - i, "+%d", delta > 9 ? 9 : delta);
+  else if (delta < 0) snprintf(out + i, n - i, "-%d", -delta > 9 ? 9 : -delta);
+}
+
+// Drawn exactly like the value it stands in for: the figure right-aligned to
+// the same axis, its caption tracked inboard of it. The row's grammar does not
+// change, only what it is reporting.
+//
+// The city gives way before the time does. Beside a five-figure step count, or
+// on a 144px screen, the name shortens to three letters and then goes
+// altogether - but the day marker rides with whatever survives, because a
+// second zone that is silently a day out is worse than one with no label.
+static bool tz2_draw(GContext *ctx, int axis, int baseline, int min_x) {
+  if (!g_cfg.tz2_on) return false;
+  const Palette *p = palette();
+  char val[8], cap[12];
+  int delta = 0;
+  tz2_str(val, sizeof val, &delta);
+  graphics_context_set_text_color(ctx, p->muted);
+  int vw = draw_right(ctx, val, F_VAL, axis, baseline);
+  int room = axis - vw - 8 - min_x;
+  for (int len = 7; len >= 0; len -= 4) {
+    tz2_caption(cap, sizeof cap, len, delta);
+    if (!cap[0]) break;
+    int w = tracked_w(cap, F_CAPS_S);
+    if (w > room) continue;
+    graphics_context_set_text_color(ctx, p->label);
+    draw_tracked(ctx, cap, F_CAPS_S, axis - vw - 8 - w, baseline);
+    break;
+  }
+  return true;
+}
+
 // The right column in the Cards layout. Everything that is not the clock or
 // the step count lives here, and the pulse brings its caption underneath the
 // number rather than inboard of it — which is the whole move: with the pulse
@@ -899,6 +1029,9 @@ static void draw_sky(GContext *ctx) {
   // telling, and the two labels will not fit on one row with the two values.
   int b_val = BASE_ROW1 - (cards ? step_dy() : 0);
   int b_bpm = line ? BASE_ROW2 : BASE_ROW1;
+  // Where the value slot ends. The second zone shares the header row with it
+  // and has to know how much of the row is actually free.
+  int left_end = MARGIN_L;
   if (hl_sleeping()) {
     int ss = hl_sleep_secs();
     unsigned hh = ((unsigned)ss / 3600u) % 100u;
@@ -918,11 +1051,12 @@ static void draw_sky(GContext *ctx) {
     x += draw_base(ctx, b, F_VAL, x, b_val) + 2;
     graphics_context_set_text_color(ctx, p->label);
     draw_base(ctx, "m", F_UNIT, x, b_val);
+    left_end = x + wm;
   } else {
     fmt_thousands(buf, sizeof buf, hl_steps());
     graphics_context_set_text_color(ctx, p->accent);
     if (line) draw_right(ctx, buf, F_VAL, MARGIN_R, b_val);
-    else      draw_base(ctx, buf, F_VAL, MARGIN_L, b_val);
+    else left_end = MARGIN_L + draw_base(ctx, buf, F_VAL, MARGIN_L, b_val);
   }
 
   // Cards spends the top right on the day's distance. It used to stand in for
@@ -930,6 +1064,12 @@ static void draw_sky(GContext *ctx) {
   // according to a sensor it has nothing to do with; here it is simply always
   // there, and the pulse keeps its own place down the column.
   if (cards) {
+    // The second zone takes this slot when it is on. It is the one value in
+    // the header that is not about movement, so it displaces the distance
+    // rather than the step count: the two figures would not fit the row, and
+    // of the pair the distance is the one the terrain below already tells you
+    // something about.
+    if (tz2_draw(ctx, CARD_R, b_val, left_end + 10)) return;
     fmt1(buf, sizeof buf, use_miles() ? hl_walked_m() / 1609.344
                                       : hl_walked_m() / 1000.0);
     const char *u = use_miles() ? "MI" : "KM";
@@ -940,6 +1080,10 @@ static void draw_sky(GContext *ctx) {
                  CARD_R - vw - 8 - tracked_w(u, F_CAPS_S), b_val);
     return;
   }
+  // One line has no header to give away, so the second zone takes the second
+  // row on the right - the pulse's slot, and the distance's when there is no
+  // reading. Stacked keeps both, which is the argument for stacked.
+  if (tz2_draw(ctx, MARGIN_R, b_bpm, MARGIN_L)) return;
   int bpm = g_cfg.show_bpm ? hl_bpm() : 0;
   const char *lbl = NULL;
   if (bpm > 0) {

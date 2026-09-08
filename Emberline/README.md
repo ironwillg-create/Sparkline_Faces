@@ -466,6 +466,45 @@ rule and nothing more.
 
 Red is not a theme color. It appears only on a flat battery and a lost phone.
 
+## The second time zone
+
+The header's right slot will carry a second zone instead of the day's distance.
+Stacked that is the top right; on one line it is the pulse's row, because a
+single line has no header to give away.
+
+```
+  0   ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+ 24   8,842           PARIS 18:14
+ 33   ╰───────────────────────╯
+```
+
+**It displaces the distance rather than the step count.** Two figures at 22pt
+do not fit that row beside a label, and of the pair the distance is the one the
+terrain underneath already says something about — sixty columns of movement is
+a fuller account of the day's walking than one decimal is. The step count stays
+because it is the accent, and the accent is what the terrain is keyed to.
+
+**It is drawn 24-hour whatever the watch is set to.** A zone you are not
+standing in carries no context to disambiguate it: `16:58` cannot be read as
+the morning, and `4:58` can. That also keeps AM/PM off the row, which is the
+only reason it fits at all.
+
+**Summer time is worked out on the watch, not sent by the phone.** A zone the
+phone has to supply is wrong exactly when a second zone is worth having — out
+of range, phone flat, aeroplane. Two rules cover the picker: the EU switches on
+a UTC instant, the US on a local wall clock, and the two are read off different
+frames for that reason. Everything else in the list has no summer time at all.
+Sydney and Auckland do, in the southern half of the year, and are deliberately
+listed without it rather than half-implemented. Nothing here is a table of
+dates, so no year goes stale.
+
+**The city gives way before the time does.** The label shortens to three
+letters and then disappears when the row runs out of room — beside a
+five-figure step count, or on a 144px screen. The day marker rides with
+whatever survives: `PARIS+1` when it is already tomorrow there, `-1` when it is
+still yesterday. A second zone silently a day out is worse than one with no
+label at all, which is the whole reason the marker is not the first thing cut.
+
 ## Sleep, and the morning
 
 Last night's sleep holds the value slot until you have actually got up and

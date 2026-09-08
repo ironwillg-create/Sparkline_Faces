@@ -186,6 +186,62 @@ module.exports = [
   {
     type: 'section',
     items: [
+      { type: 'heading', defaultValue: 'Second time zone' },
+      {
+        type: 'toggle',
+        messageKey: 'TZ2On',
+        defaultValue: true,
+        label: 'Show a second zone',
+        description: 'Stacked gives it the distance slot in the header; one line gives it the pulse slot. Always 24-hour, so 16:58 cannot be read as the morning.'
+      },
+      {
+        type: 'select',
+        messageKey: 'TZ2Zone',
+        defaultValue: '60:1:PARIS',
+        label: 'Zone',
+        description: 'Summer time is worked out on the watch, so the zone stays right with your phone out of range. Sydney and Auckland do not follow it here.',
+        options: [
+        { label: 'Honolulu', value: '-600:0:HONOLUL' },
+        { label: 'Anchorage', value: '-540:2:ANCHORA' },
+        { label: 'Los Angeles', value: '-480:2:LOSANGE' },
+        { label: 'Denver', value: '-420:2:DENVER' },
+        { label: 'Chicago', value: '-360:2:CHICAGO' },
+        { label: 'New York', value: '-300:2:NEWYORK' },
+        { label: 'Sao Paulo', value: '-180:0:SAOPAUL' },
+        { label: 'UTC', value: '0:0:UTC' },
+        { label: 'London', value: '0:1:LONDON' },
+        { label: 'Paris', value: '60:1:PARIS' },
+        { label: 'Berlin', value: '60:1:BERLIN' },
+        { label: 'Madrid', value: '60:1:MADRID' },
+        { label: 'Rome', value: '60:1:ROME' },
+        { label: 'Athens', value: '120:1:ATHENS' },
+        { label: 'Johannesburg', value: '120:0:JOHANNE' },
+        { label: 'Moscow', value: '180:0:MOSCOW' },
+        { label: 'Dubai', value: '240:0:DUBAI' },
+        { label: 'Mumbai', value: '330:0:MUMBAI' },
+        { label: 'Bangkok', value: '420:0:BANGKOK' },
+        { label: 'Singapore', value: '480:0:SINGAPO' },
+        { label: 'Hong Kong', value: '480:0:HONGKON' },
+        { label: 'Beijing', value: '480:0:BEIJING' },
+        { label: 'Tokyo', value: '540:0:TOKYO' },
+        { label: 'Seoul', value: '540:0:SEOUL' },
+        { label: 'Sydney', value: '600:0:SYDNEY' },
+        { label: 'Auckland', value: '720:0:AUCKLAN' }
+        ]
+      },
+      {
+        type: 'input',
+        messageKey: 'TZ2Label',
+        defaultValue: '',
+        label: 'Label',
+        description: 'Up to seven letters. Leave it empty to use the city above. A +1 or -1 joins it when the date there is not the date here.',
+        attributes: { placeholder: 'PARIS' }
+      }
+    ]
+  },
+  {
+    type: 'section',
+    items: [
       { type: 'heading', defaultValue: 'Weather' },
       {
         type: 'toggle',

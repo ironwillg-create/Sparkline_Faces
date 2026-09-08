@@ -1,7 +1,7 @@
 {
   "name": "emberline",
   "author": "thejambi",
-  "version": "1.4.3",
+  "version": "1.5.0",
   "keywords": [
     "pebble-watchface"
   ],
@@ -9,7 +9,7 @@
   "dependencies": {},
   "pebble": {
     "displayName": "Emberline",
-    "uuid": "0c8aaa3b-ef18-47d9-a9eb-3c0f02a28302",
+    "uuid": "3f2c9d18-6b4a-4f27-9c53-8ad1e0b74f62",
     "sdkVersion": "3",
     "enableMultiJS": true,
     "targetPlatforms": [
@@ -60,7 +60,10 @@
       "ColInfoBg",
       "AutoHide",
       "GrowClock",
-      "ColorMode"
+      "ColorMode",
+      "TZ2On",
+      "TZ2Zone",
+      "TZ2Label"
     ],
     "resources": {
       "media": [
@@ -74,7 +77,7 @@
           "type": "font",
           "name": "FONT_VALUE_22",
           "file": "fonts/Montserrat-Bold.ttf",
-          "characterRegex": "[0-9,.]",
+          "characterRegex": "[0-9,.:]",
           "targetPlatforms": [
             "emery"
           ]
@@ -101,7 +104,7 @@
           "type": "font",
           "name": "FONT_CAPS_11",
           "file": "fonts/Montserrat-Bold.ttf",
-          "characterRegex": "[A-Z]",
+          "characterRegex": "[A-Z+]",
           "targetPlatforms": [
             "emery"
           ]
@@ -110,7 +113,7 @@
           "type": "font",
           "name": "FONT_VALUE_16",
           "file": "fonts/Montserrat-Bold.ttf",
-          "characterRegex": "[0-9,.]",
+          "characterRegex": "[0-9,.:]",
           "targetPlatforms": [
             "basalt",
             "diorite",
@@ -143,7 +146,7 @@
           "type": "font",
           "name": "FONT_CAPS_9",
           "file": "fonts/Montserrat-Bold.ttf",
-          "characterRegex": "[A-Z]",
+          "characterRegex": "[A-Z+]",
           "targetPlatforms": [
             "basalt",
             "diorite",
@@ -394,7 +397,7 @@
           "type": "font",
           "name": "FONT_DVAL_17",
           "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[0-9,.]",
+          "characterRegex": "[0-9,.:]",
           "targetPlatforms": [
             "emery"
           ]
@@ -403,7 +406,7 @@
           "type": "font",
           "name": "FONT_DVAL_13",
           "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[0-9,.]",
+          "characterRegex": "[0-9,.:]",
           "targetPlatforms": [
             "basalt",
             "diorite",
@@ -434,7 +437,7 @@
           "type": "font",
           "name": "FONT_DCPS_11",
           "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[A-Z]",
+          "characterRegex": "[A-Z+]",
           "targetPlatforms": [
             "emery"
           ]
@@ -443,7 +446,7 @@
           "type": "font",
           "name": "FONT_DCPS_8",
           "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[A-Z]",
+          "characterRegex": "[A-Z+]",
           "targetPlatforms": [
             "basalt",
             "diorite",

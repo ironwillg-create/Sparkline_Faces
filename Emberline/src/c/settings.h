@@ -77,7 +77,23 @@ typedef struct {
   // one size each. Off, and every face simply glides to the middle of the sky
   // and back, which is the same animation minus the step in scale.
   bool grow_clock;
+  // A second time zone, in the slot the header keeps for a secondary value.
+  // Worked out on the watch from UTC and a rule rather than fetched from the
+  // phone, so it stays right with the phone out of range - which is most of
+  // what a second zone is for.
+  //
+  // Appended like everything else here: a save from before this existed stops
+  // short of these and keeps the defaults.
+  bool tz2_on;
+  int16_t tz2_base;              // minutes from UTC, standard time, signed
+  uint8_t tz2_rule;              // TZR_*: which summer time, if any
+  char tz2_label[8];             // the city, in caps; empty draws the time alone
 } Settings;
+
+// Summer time. Two rules cover every zone in the picker, and most of the world
+// needs neither. Both are evaluated against an absolute instant rather than a
+// stored transition date, so nothing has to be updated each year.
+enum { TZR_NONE, TZR_EU, TZR_US };
 
 #define COL_INHERIT 0xFF000000u
 
