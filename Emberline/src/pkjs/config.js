@@ -276,6 +276,13 @@ module.exports = [
       { type: 'heading', defaultValue: 'Alerts' },
       {
         type: 'toggle',
+        messageKey: 'AmberNight',
+        defaultValue: true,
+        label: 'Amber backlight at night',
+        description: 'From sunset to sunrise the backlight glows amber while this face is showing. Sun times come with the weather; with weather off it uses 7 pm to 7 am. Menus and notifications use the colour set in the Pebble app.'
+      },
+      {
+        type: 'toggle',
         messageKey: 'BTVibe',
         defaultValue: false,
         label: 'Vibrate on disconnect',

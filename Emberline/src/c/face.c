@@ -663,7 +663,59 @@ static void weather_load(void) {
   }
 }
 
-void face_poke(void) { if (s_layer) layer_mark_dirty(s_layer); }
+// ---------------------------------------------------------------------------
+// Amber backlight at night (Will's 2B, 2026-11-19, session 261118-copper-slate)
+// ---------------------------------------------------------------------------
+// The Time 2's backlight is RGB. An app can tint it only while it is in front,
+// and the system puts the user's own colour back when it leaves or a
+// notification takes over, so this re-asserts it every minute and on regaining
+// focus. Night is sunset to sunrise as minutes past local midnight, sent by the
+// phone with the weather (Open-Meteo); until the first fetch, or with weather
+// off, it falls back to 19:00 to 07:00. Built for emery (the Time 2) only;
+// the other targets have no colour backlight.
+#define KEY_SUN 31
+#define AMBER_RGB 0xFF6A00
+typedef struct { int16_t up, down; } SunSave;
+static SunSave s_sun = { 7 * 60, 19 * 60 };
+
+#if defined(PBL_PLATFORM_EMERY)
+static bool is_night(const struct tm *t) {
+  int m = t->tm_hour * 60 + t->tm_min;
+  return m < s_sun.up || m >= s_sun.down;
+}
+#endif
+
+static void backlight_sync(void) {
+#if defined(PBL_PLATFORM_EMERY)   // the only target with a colour backlight
+  time_t now = time(NULL);
+  if (!g_cfg.amber_off && is_night(localtime(&now)))
+    light_set_color_rgb888(AMBER_RGB);
+  else
+    light_set_system_color();
+#endif
+}
+
+void face_set_sun(int up_min, int down_min) {
+  if (up_min < 0 || up_min >= 24 * 60 || down_min <= up_min || down_min >= 24 * 60) return;
+  s_sun.up = (int16_t)up_min;
+  s_sun.down = (int16_t)down_min;
+  persist_write_data(KEY_SUN, &s_sun, sizeof s_sun);
+  backlight_sync();
+}
+
+static void sun_load(void) {
+  if (persist_exists(KEY_SUN) && persist_get_size(KEY_SUN) == (int)sizeof(SunSave))
+    persist_read_data(KEY_SUN, &s_sun, sizeof s_sun);
+}
+
+static void focus_handler(bool in_focus) {
+  if (in_focus) backlight_sync();
+}
+
+void face_poke(void) {
+  backlight_sync();   // settings changes land here too
+  if (s_layer) layer_mark_dirty(s_layer);
+}
 
 static void reveal_step(void *unused);
 
@@ -1378,6 +1430,7 @@ void face_init(void) {
   s_bt_ok = connection_service_peek_pebble_app_connection();
   s_batt = battery_state_service_peek().charge_percent;
   weather_load();
+  sun_load();
   fonts_load();
 
   s_win = window_create();
@@ -1390,6 +1443,8 @@ void face_init(void) {
   connection_service_subscribe((ConnectionHandlers){
     .pebble_app_connection_handler = bt_handler });
   battery_state_service_subscribe(batt_handler);
+  app_focus_service_subscribe_handlers((AppFocusHandlers){ .did_focus = focus_handler });
+  backlight_sync();
   reveal_sync();
   health_init();
 }
@@ -1398,6 +1453,7 @@ void face_deinit(void) {
   tick_timer_service_unsubscribe();
   connection_service_unsubscribe();
   battery_state_service_unsubscribe();
+  app_focus_service_unsubscribe();
   if (cards_hiding()) accel_tap_service_unsubscribe();
   health_deinit();
   fonts_unload();

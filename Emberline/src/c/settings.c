@@ -246,6 +246,10 @@ static void inbox(DictionaryIterator *it, void *ctx) {
   Tuple *tl = dict_find(it, MESSAGE_KEY_TZ2Label);
   if (tl && tl->type == TUPLE_CSTRING && tl->length > 1)
     tz2_set_label(tl->value->cstring);
+  g_cfg.amber_off    = !tup_int(it, MESSAGE_KEY_AmberNight, !g_cfg.amber_off);
+  Tuple *su = dict_find(it, MESSAGE_KEY_SunUp);         // phone-side fetch
+  Tuple *sd = dict_find(it, MESSAGE_KEY_SunDown);
+  if (su && sd) face_set_sun((int)su->value->int32, (int)sd->value->int32);
   Tuple *wt = dict_find(it, MESSAGE_KEY_WeatherTemp);   // phone-side fetch
   if (wt) face_set_temp((int)wt->value->int32);
   g_cfg.version = SETTINGS_VERSION;

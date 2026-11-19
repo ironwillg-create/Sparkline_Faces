@@ -133,4 +133,5 @@ void face_init(void);
 void face_deinit(void);
 void face_poke(void);
 void face_set_temp(int temp);
+void face_set_sun(int up_min, int down_min);
 void face_fonts_changed(void);   // the clock face or weight was reconfigured

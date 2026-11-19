@@ -88,6 +88,10 @@ typedef struct {
   int16_t tz2_base;              // minutes from UTC, standard time, signed
   uint8_t tz2_rule;              // TZR_*: which summer time, if any
   char tz2_label[8];             // the city, in caps; empty draws the time alone
+  // Amber backlight between sunset and sunrise (Will's 2B, 2026-11-19). Stored
+  // as the OFF switch so that a save from before this existed, which stops
+  // short of it, and zeroed padding both read as on.
+  bool amber_off;
 } Settings;
 
 // Summer time. Two rules cover every zone in the picker, and most of the world

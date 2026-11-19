@@ -85,11 +85,23 @@ function getJSON(url, cb) {
 
 function fetchTemp(lat, lon, unit) {
   getJSON('https://api.open-meteo.com/v1/forecast?latitude=' + lat +
-          '&longitude=' + lon + '&current=temperature_2m&temperature_unit=' + unit,
+          '&longitude=' + lon + '&current=temperature_2m&temperature_unit=' + unit +
+          '&daily=sunrise,sunset&forecast_days=1&timezone=auto&timeformat=unixtime',
     function (d) {
+      var msg = {};
       if (d && d.current && typeof d.current.temperature_2m === 'number') {
-        Pebble.sendAppMessage({ WeatherTemp: Math.round(d.current.temperature_2m) });
+        msg.WeatherTemp = Math.round(d.current.temperature_2m);
       }
+      // Sunrise and sunset as minutes past local midnight, for the amber
+      // backlight. Read in the phone's own zone, which is the watch's.
+      if (d && d.daily && d.daily.sunrise && d.daily.sunset &&
+          d.daily.sunrise.length && d.daily.sunset.length) {
+        var up = new Date(d.daily.sunrise[0] * 1000);
+        var down = new Date(d.daily.sunset[0] * 1000);
+        msg.SunUp = up.getHours() * 60 + up.getMinutes();
+        msg.SunDown = down.getHours() * 60 + down.getMinutes();
+      }
+      if (Object.keys(msg).length) Pebble.sendAppMessage(msg);
     });
 }
 

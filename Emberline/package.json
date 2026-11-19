@@ -1,7 +1,7 @@
 {
   "name": "emberline",
   "author": "thejambi",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "keywords": [
     "pebble-watchface"
   ],
@@ -63,7 +63,10 @@
       "ColorMode",
       "TZ2On",
       "TZ2Zone",
-      "TZ2Label"
+      "TZ2Label",
+      "AmberNight",
+      "SunUp",
+      "SunDown"
     ],
     "resources": {
       "media": [
