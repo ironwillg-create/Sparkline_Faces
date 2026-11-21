@@ -568,3 +568,18 @@ install again. Two traps, both of which have cost an hour here before:
 Emulator screenshots also run through an LCD simulation, so colors read
 washed out compared to the hex in `settings.c`. That is roughly what the real
 transflective panel does; judge color on the wrist, not in the simulator.
+
+## Quick View and the mic banner
+
+PebbleOS draws two things over the bottom of a watchface rather than taking the
+whole screen: Timeline Quick View (an event about to start) and the dictation
+mic banner. Notifications are not one of them; they are always a full-screen
+window, and no face can change that.
+
+Emberline subscribes to the unobstructed area, so the firmware leaves it alone
+and lets those overlays lie over the ember line, the one part of the face that
+can be spared. When the overlay is taller than the ground (Quick View is 59px
+on emery against the stacked layout's 40px of terrain), the face slides up by
+the difference: the horizon rests on top of the card, the clock stays whole,
+and the header is what goes off the top until the card leaves. The mic banner
+(38px) fits inside the ground and moves nothing.

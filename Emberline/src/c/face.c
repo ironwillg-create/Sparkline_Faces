@@ -712,8 +712,36 @@ static void focus_handler(bool in_focus) {
   if (in_focus) backlight_sync();
 }
 
+// Quick View and the mic banner rise over the bottom of the screen. Emberline
+// lets them lie over the ember line, which is the one thing it can spare, and
+// says so by subscribing: a face that does not gets squished or shifted whole
+// by the firmware. When the overlay is taller than the ground (Quick View on
+// the stacked layout is 59px against 40), the face slides up by the
+// difference so the horizon sits on the card and the clock stays whole; the
+// header is what goes off the top for those few seconds.
+static int fit_lift(void) {
+  if (!s_win) return 0;
+  GRect ub = layer_get_unobstructed_bounds(window_get_root_layer(s_win));
+  int lift = ground_y() - (ub.origin.y + ub.size.h);
+  return lift > 0 ? lift : 0;
+}
+
+static void fit_apply(void) {
+  if (!s_layer) return;
+  GRect f = layer_get_frame(s_layer);
+  int y = -fit_lift();
+  if (f.origin.y != y) {
+    f.origin.y = y;
+    layer_set_frame(s_layer, f);
+  }
+}
+
+static void fit_change(AnimationProgress progress, void *ctx) { fit_apply(); }
+static void fit_did_change(void *ctx) { fit_apply(); }
+
 void face_poke(void) {
   backlight_sync();   // settings changes land here too
+  fit_apply();        // a layout change moves the horizon
   if (s_layer) layer_mark_dirty(s_layer);
 }
 
@@ -1417,9 +1445,13 @@ static void win_load(Window *w) {
   s_layer = layer_create(layer_get_bounds(root));
   layer_set_update_proc(s_layer, draw);
   layer_add_child(root, s_layer);
+  unobstructed_area_service_subscribe((UnobstructedAreaHandlers){
+    .change = fit_change, .did_change = fit_did_change }, NULL);
+  fit_apply();   // an overlay may already be up when the face opens
 }
 
 static void win_unload(Window *w) {
+  unobstructed_area_service_unsubscribe();
   layer_destroy(s_layer);
   s_layer = NULL;
 }
